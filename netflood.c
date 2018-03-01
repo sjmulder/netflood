@@ -43,7 +43,7 @@ writeall(int fd, char *data, size_t len)
 	ssize_t	nwritten;
 
 	while (len > 0) {
-		nwritten = write(fd, data, MIN(len, 8));
+		nwritten = write(fd, data, len);
 		if (nwritten == -1)
 			err(1, NULL);
 
