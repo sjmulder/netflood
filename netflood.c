@@ -19,8 +19,7 @@ readall(int fd, char **bufp, size_t *lenp)
 
 	if (!*bufp)
 		err(1, NULL);
-	
-	
+
 	while (1) {
 		nread = read(fd, *bufp+*lenp, cap-*lenp);
 		if (nread == 0)
