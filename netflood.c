@@ -53,20 +53,44 @@ writeall(int fd, char *data, size_t len)
 }
 
 static void
-forward(int fdin, int fdout)
+drain(int fd)
 {
+	char	data[4096];
 	ssize_t	nread;
-	char	buf[4096];
 
 	while (1) {
-		nread = read(fdin, buf, sizeof(buf));
+		nread = read(fd, data, sizeof(data));
 		if (nread == -1)
 			err(1, NULL);
 		if (nread == 0)
-			break;
-
-		writeall(fdout, buf, nread);
+			return;
 	}
+}
+
+static int
+connectany(struct addrinfo *addr0)
+{
+	struct addrinfo	*addr;
+	int		 sock = -1;
+
+	for (addr = addr0; addr; addr = addr->ai_next) {
+		sock = socket(addr->ai_family, addr->ai_socktype,
+		    addr->ai_protocol);
+		if (sock == -1) {
+			warn("socket()");
+			continue;
+		}
+
+		if (connect(sock, addr->ai_addr, addr->ai_addrlen) == -1) {
+			warn("connect()");
+			close(sock);
+			continue;
+		}
+
+		return sock;
+	}
+
+	errx(1, "failed to connect");
 }
 
 int
@@ -75,9 +99,9 @@ main(int argc, char **argv)
 	char		*input;
 	size_t		 inputlen;
 	struct addrinfo	 hints;
-	struct addrinfo	*addr0, *addr;
+	struct addrinfo	*addr0;
 	int		 error;
-	int		 sock	= -1;
+	int		 sock;
 
 	if (argc != 3)
 		errx(1, "usage: netflood [host] [port | service]");
@@ -92,31 +116,14 @@ main(int argc, char **argv)
 	if (error)
 		errx(1, "lookup failed: %s", gai_strerror(error));
 
-	for (addr = addr0; addr; addr = addr->ai_next) {
-		sock = socket(addr->ai_family, addr->ai_socktype,
-		    addr->ai_protocol);
-		if (sock == -1) {
-			warn("socket()");
-			continue;
-		}
-
-		if (connect(sock, addr->ai_addr, addr->ai_addrlen) == -1) {
-			warn("connect()");
-			close(sock);
-			sock = -1;
-			continue;
-		}
-
-		break;
+	while (1) {
+		sock = connectany(addr0);
+		writeall(sock, input, inputlen);
+		drain(sock);
+		close(sock);
+		write(STDOUT_FILENO, ".", 1);
 	}
 
-	if (sock == -1)
-		errx(1, "failed to connect");
-
-	writeall(sock, input, inputlen);
-	forward(sock, STDOUT_FILENO);
-
-	close(sock);
 	freeaddrinfo(addr0);
 	return 0;
 }
