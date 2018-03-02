@@ -10,8 +10,6 @@
 #include <err.h>
 #include <pthread.h>
 
-#define MIN(a,b) ((a)>(b)?(b):(a))
-
 struct threadcx {
 	struct addrinfo	*addr0;
 	char		*data;
