@@ -84,13 +84,10 @@ connectany(struct addrinfo *addr0)
 	for (addr = addr0; addr; addr = addr->ai_next) {
 		sock = socket(addr->ai_family, addr->ai_socktype,
 		    addr->ai_protocol);
-		if (sock == -1) {
-			warn("socket()");
+		if (sock == -1)
 			continue;
-		}
 
 		if (connect(sock, addr->ai_addr, addr->ai_addrlen) == -1) {
-			warn("connect()");
 			close(sock);
 			continue;
 		}
@@ -98,7 +95,7 @@ connectany(struct addrinfo *addr0)
 		return sock;
 	}
 
-	errx(1, "failed to connect");
+	err(1, "failed to connect");
 }
 
 static void *
