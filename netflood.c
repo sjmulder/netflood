@@ -5,8 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <err.h>
+#include <pthread.h>
 
 #define MIN(a,b) ((a)>(b)?(b):(a))
+
+struct threadcx {
+	struct addrinfo	*addr0;
+	char		*data;
+	size_t		 datalen;
+};
 
 static void
 readall(int fd, char **bufp, size_t *lenp)
@@ -93,37 +100,71 @@ connectany(struct addrinfo *addr0)
 	errx(1, "failed to connect");
 }
 
-int
-main(int argc, char **argv)
+static void *
+threadmain(void *p)
 {
-	char		*input;
-	size_t		 inputlen;
-	struct addrinfo	 hints;
-	struct addrinfo	*addr0;
-	int		 error;
+	struct threadcx	*cx	= p;
 	int		 sock;
 
-	if (argc != 3)
-		errx(1, "usage: netflood [host] [port | service]");
-
-	readall(STDIN_FILENO, &input, &inputlen);
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	error = getaddrinfo(argv[1], argv[2], &hints, &addr0);
-	if (error)
-		errx(1, "lookup failed: %s", gai_strerror(error));
-
 	while (1) {
-		sock = connectany(addr0);
-		writeall(sock, input, inputlen);
+		sock = connectany(cx->addr0);
+		writeall(sock, cx->data, cx->datalen);
 		drain(sock);
 		close(sock);
 		write(STDOUT_FILENO, ".", 1);
 	}
 
-	freeaddrinfo(addr0);
+	return NULL;
+}
+
+int
+main(int argc, char **argv)
+{
+	int		 opt;
+	long		 njobs	= 1;
+	struct threadcx	 threadcx;
+	struct addrinfo	 hints;
+	int		 error;
+	int		 i;
+	pthread_t	*threads;
+
+	while ((opt = getopt(argc, argv, "j:")) != -1) {
+		switch (opt) {
+		case 'j':
+			njobs = strtol(optarg, NULL, 10);
+			if (njobs < 1)
+				errx(1, "invalid -j value");
+			break;
+		default:
+			return 1;
+		}
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	if (argc != 2)
+		errx(1, "usage: netflood [-j njobs] host port|service");
+
+	readall(STDIN_FILENO, &threadcx.data, &threadcx.datalen);
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	error = getaddrinfo(argv[0], argv[1], &hints, &threadcx.addr0);
+	if (error)
+		errx(1, "lookup failed: %s", gai_strerror(error));
+
+	threads = malloc(njobs * sizeof(*threads));
+	if (!threads)
+		err(1, NULL);
+
+	for (i = 0; i < njobs; i++)
+		pthread_create(&threads[i], NULL, threadmain, &threadcx);
+	for (i = 0; i < njobs; i++)
+		pthread_join(threads[i], NULL);
+
+	freeaddrinfo(threadcx.addr0);
 	return 0;
 }

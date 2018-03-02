@@ -1,4 +1,5 @@
-CFLAGS += -Wall -Wextra
+CFLAGS += -Wall -Wextra -pthread
+LDLIBS += -pthread
 
 all: netflood
 
