@@ -1,3 +1,5 @@
+/* netflood.c - Copyright (c) 2018, Sijmen J. Mulder (see LICENSE.md) */
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
