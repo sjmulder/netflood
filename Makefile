@@ -3,6 +3,7 @@ prefix ?= /usr/local
 bindir ?= $(prefix)/bin
 
 CFLAGS += -ansi -pthread -g
+CFLAGS += -D_POSIX_C_SOURCE=200112L
 CFLAGS += -Wall -Wextra -pedantic
 
 LDFLAGS += -pthread
